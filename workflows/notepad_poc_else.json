@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "id": "wf-notepad-poc-else-002",
+  "name": "Notepad UIA ELSE Branch Verification",
+  "description": "Verifies that the ELSE branch executes correctly when the observed text does not match a mismatched condition.",
+  "variables": {
+    "test_input": "NewDoAuto_POC_2026",
+    "observed_text": ""
+  },
+  "actions": [
+    {
+      "id": "act-1-launch",
+      "type": "app.launch",
+      "params": {
+        "command": "notepad.exe",
+        "wait_after_launch_seconds": 1.5,
+        "track_process": true
+      }
+    },
+    {
+      "id": "act-2-write",
+      "type": "uia.set_text",
+      "params": {
+        "selector": {
+          "window": { "ClassName": "Notepad" },
+          "control": { "searchDepth": 4 }
+        },
+        "text": "${test_input}"
+      }
+    },
+    {
+      "id": "act-3-read",
+      "type": "uia.get_text",
+      "params": {
+        "selector": {
+          "window": { "ClassName": "Notepad" },
+          "control": { "searchDepth": 4 }
+        }
+      }
+    },
+    {
+      "id": "act-4-store",
+      "type": "flow.set_variable",
+      "params": {
+        "name": "observed_text",
+        "value": "${act-3-read}"
+      }
+    },
+    {
+      "id": "act-5-condition",
+      "type": "flow.if_else",
+      "params": {
+        "condition": "${observed_text} == 'MISMATCHED_STRING_12345'",
+        "then": [
+          {
+            "id": "act-5-then-log",
+            "type": "log.write",
+            "params": {
+              "level": "ERROR",
+              "message": "Should NOT have taken THEN branch for mismatched condition"
+            }
+          }
+        ],
+        "else": [
+          {
+            "id": "act-5-else-log",
+            "type": "log.write",
+            "params": {
+              "level": "INFO",
+              "message": "[ELSE BRANCH VERIFIED] Condition evaluated to False as expected! Observed '${observed_text}', which does not equal 'MISMATCHED_STRING_12345'"
+            }
+          },
+          {
+            "id": "act-5-else-set",
+            "type": "flow.set_variable",
+            "params": {
+              "name": "branch_executed",
+              "value": "ELSE_BRANCH_VERIFIED"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

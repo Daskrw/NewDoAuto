@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "newdoauto"
+version = "0.1.0"
+description = "Personal Desktop Automation Tool for Windows"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Daskrw" }]
+dependencies = [
+    "uiautomation>=2.0.29",
+    "comtypes>=1.4.17",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pyinstaller>=6.0.0",
+]
+
+[project.scripts]
+newdoauto = "newdoauto.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

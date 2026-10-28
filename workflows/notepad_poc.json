@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0.0",
+  "id": "wf-notepad-poc-001",
+  "name": "Notepad UIA End-to-End Proof of Concept",
+  "description": "Launches Notepad, writes test text via UI Automation, reads it back, evaluates IF/ELSE condition, and logs verified outcome.",
+  "variables": {
+    "test_input": "NewDoAuto_POC_2026",
+    "observed_text": ""
+  },
+  "actions": [
+    {
+      "id": "act-1-launch",
+      "type": "app.launch",
+      "description": "Launch real Windows Notepad",
+      "params": {
+        "command": "notepad.exe",
+        "wait_after_launch_seconds": 1.5,
+        "track_process": true
+      }
+    },
+    {
+      "id": "act-2-write",
+      "type": "uia.set_text",
+      "description": "Write unique test string into Notepad text editor control",
+      "params": {
+        "selector": {
+          "window": {
+            "ClassName": "Notepad"
+          },
+          "control": {
+            "searchDepth": 4
+          }
+        },
+        "text": "${test_input}",
+        "mode": "auto"
+      },
+      "timeout_seconds": 8.0
+    },
+    {
+      "id": "act-3-read",
+      "type": "uia.get_text",
+      "description": "Read back the observed text from Notepad via UIA",
+      "params": {
+        "selector": {
+          "window": {
+            "ClassName": "Notepad"
+          },
+          "control": {
+            "searchDepth": 4
+          }
+        }
+      },
+      "timeout_seconds": 5.0
+    },
+    {
+      "id": "act-4-store",
+      "type": "flow.set_variable",
+      "description": "Store the observed text into workflow variable",
+      "params": {
+        "name": "observed_text",
+        "value": "${act-3-read}"
+      }
+    },
+    {
+      "id": "act-5-condition",
+      "type": "flow.if_else",
+      "description": "Verify observed text against expected test string using IF/ELSE",
+      "params": {
+        "condition": "${observed_text} == 'NewDoAuto_POC_2026'",
+        "then": [
+          {
+            "id": "act-5-then-log",
+            "type": "log.write",
+            "params": {
+              "level": "INFO",
+              "message": "[POC VERIFIED] Notepad text readback confirmed: '${observed_text}' == 'NewDoAuto_POC_2026'"
+            }
+          },
+          {
+            "id": "act-5-then-set",
+            "type": "flow.set_variable",
+            "params": {
+              "name": "branch_executed",
+              "value": "THEN_BRANCH_VERIFIED"
+            }
+          }
+        ],
+        "else": [
+          {
+            "id": "act-5-else-log",
+            "type": "log.write",
+            "params": {
+              "level": "ERROR",
+              "message": "[POC FAILED] Unexpected text observed: '${observed_text}'"
+            }
+          },
+          {
+            "id": "act-5-else-set",
+            "type": "flow.set_variable",
+            "params": {
+              "name": "branch_executed",
+              "value": "ELSE_BRANCH_UNEXPECTED"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
