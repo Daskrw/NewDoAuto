@@ -13,6 +13,8 @@ authors = [{ name = "Daskrw" }]
 dependencies = [
     "uiautomation>=2.0.29",
     "comtypes>=1.4.17",
+    "supabase>=2.0.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]

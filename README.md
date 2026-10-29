@@ -136,11 +136,83 @@ Installs `newdoauto.exe` into `%LOCALAPPDATA%\Programs\NewDoAuto\bin` and adds i
 
 ---
 
-## Cloud Roadmap: Supabase Integration (Phase B)
+## Cloud Persistence & Supabase Authentication (Phase B)
 
-In Phase B, saved workflows will synchronize across PCs using Supabase:
-- **Supabase Auth**: User authentication.
-- **Supabase PostgreSQL**: Authoritative cloud store for versioned workflow JSON documents.
-- **Row Level Security (RLS)**: Enforces strict per-user ownership and isolation.
-- **Security Rule**: No service role keys or database credentials are ever embedded in the client application. Client uses solely the public publishable anon key with authenticated JWTs.
-- See [`.env.example`](.env.example) for template configuration.
+NewDoAuto uses **Supabase** (`Supabase Auth` + `Supabase PostgreSQL` + `Row Level Security`) as its sole cloud database platform. The cloud layer (`src/newdoauto/cloud/`) is strictly decoupled from the Windows UI Automation engine (`src/newdoauto/core/`), ensuring local JSON workflows continue to execute offline without requiring a cloud connection.
+
+### 1. Security & Key Guardrails
+- **Publishable Key Only**: The desktop client uses only `SUPABASE_URL` and the public `SUPABASE_ANON_KEY` (configured via environment variables or `.env`).
+- **Active Secret Rejection**: `load_supabase_config()` inspects configured keys and actively rejects `service_role` JWTs and `sb_secret_...` keys so privileged credentials can never be used in the desktop client.
+- **Zero Password Persistence**: `SupabaseAuthService` persists only non-password session tokens (`access_token`, `refresh_token`, `expires_at`) to `%LOCALAPPDATA%\NewDoAuto\session.json` and redacts tokens/passwords from all `repr()` strings and exception messages via `sanitize_error_message()`.
+
+### 2. Database Schema & Migration
+Apply the version-controlled migration in [`supabase/migrations/20261029000001_create_workflows_table.sql`](supabase/migrations/20261029000001_create_workflows_table.sql) via the Supabase SQL Editor or `supabase db push`:
+
+- **Table**: `public.workflows`
+  - `id` (`UUID PRIMARY KEY`)
+  - `owner_id` (`UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE`)
+  - `name` (`TEXT NOT NULL`, non-empty constraint)
+  - `description` (`TEXT`)
+  - `schema_version` (`TEXT NOT NULL DEFAULT '1.0.0'`)
+  - `definition` (`JSONB NOT NULL`, checked to be a JSON object)
+  - `version` (`INTEGER NOT NULL DEFAULT 1`, checked `>= 1` for optimistic concurrency control)
+  - `created_at` / `updated_at` (`TIMESTAMPTZ NOT NULL DEFAULT now()`)
+- **Row Level Security (RLS)**:
+  - `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY` on `public.workflows`.
+  - All privileges revoked from `PUBLIC` and `anon`.
+  - Four per-operation policies (`workflows_select_own`, `workflows_insert_own`, `workflows_update_own`, `workflows_delete_own`) restricting `authenticated` users strictly to rows where `(SELECT auth.uid()) = owner_id`.
+  - Database trigger `trg_workflows_before_update` prevents mutating `id` or `owner_id` and automatically updates `updated_at`.
+
+### 3. Desktop UI Integration Interface
+The future desktop UI layer interacts with the cloud module through two service classes:
+
+```python
+from newdoauto.cloud import (
+    SupabaseAuthService,
+    WorkflowCloudRepository,
+    WorkflowConflictError,
+)
+from newdoauto.models.workflow import Workflow
+
+# 1. Initialize Auth Service (loads SUPABASE_URL and SUPABASE_ANON_KEY from .env)
+auth = SupabaseAuthService()
+
+# Restore previous session on app launch, or sign in with email & password
+session = auth.restore_session() or auth.sign_in("user@example.com", "StrongPassword123!")
+
+# 2. Perform Authenticated Workflow CRUD
+repo = WorkflowCloudRepository(auth_service=auth)
+
+# Create workflow (saved at version=1)
+wf = Workflow.from_json(open("workflows/notepad_poc.json", encoding="utf-8").read())
+record = repo.create_workflow(wf)
+
+# List and fetch user's workflows
+my_workflows = repo.list_workflows()
+loaded = repo.get_workflow(record.id)
+
+# Update with optimistic concurrency protection
+try:
+    loaded.workflow.name = "Updated Notepad Flow"
+    updated = repo.update_workflow(
+        workflow_id=loaded.id,
+        workflow=loaded.workflow,
+        expected_version=loaded.version,
+    )
+except WorkflowConflictError as exc:
+    # Handle concurrent edit from another PC without silent data loss
+    print(f"Conflict: expected v{exc.expected_version}, cloud has v{exc.actual_version}")
+
+# Delete workflow and sign out
+repo.delete_workflow(record.id)
+auth.sign_out()
+```
+
+### 4. Verifying Row Level Security (RLS) Live
+1. Open your Supabase project dashboard -> **SQL Editor**, paste the contents of [`supabase/migrations/20261029000001_create_workflows_table.sql`](supabase/migrations/20261029000001_create_workflows_table.sql), and click **Run**.
+2. Create two test users in **Authentication -> Users** (or enable immediate email sign-up) and set `NEWDOAUTO_TEST_USER_A_EMAIL`, `NEWDOAUTO_TEST_USER_A_PASSWORD`, `NEWDOAUTO_TEST_USER_B_EMAIL`, and `NEWDOAUTO_TEST_USER_B_PASSWORD` in your local `.env`.
+3. Run the live verification suite:
+   ```powershell
+   pytest tests/test_supabase_live_rls.py -v -rs
+   ```
+   This verifies live Auth rejection of invalid credentials, anonymous table protection, and two-user RLS isolation (confirming User B cannot read, update, delete, or spoof `owner_id` for User A's workflows).

@@ -49,5 +49,6 @@ htmlcov/
 .env
 .env.local
 .env.*.local
+.newdoauto_session.json
 *.log
 local_cache/
