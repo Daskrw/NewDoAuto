@@ -6,15 +6,21 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from newdoauto.core.state import ExecutionContext
 
 
 class StructuredLogger:
     """Provides structured JSON & human-readable console logging with execution context tracking."""
-    def __init__(self, context: Optional[ExecutionContext] = None, quiet: bool = False):
+    def __init__(
+        self,
+        context: Optional[ExecutionContext] = None,
+        quiet: bool = False,
+        on_log: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ):
         self.context = context
         self.quiet = quiet
+        self.on_log = on_log
 
     def log(
         self,
@@ -36,6 +42,12 @@ class StructuredLogger:
 
         if self.context:
             self.context.logs.append(entry)
+
+        if self.on_log is not None:
+            try:
+                self.on_log(entry)
+            except Exception:
+                pass
 
         if not self.quiet:
             prefix = f"[{level.upper():5s}]"

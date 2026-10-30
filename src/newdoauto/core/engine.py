@@ -67,14 +67,27 @@ class AutomationEngine:
         try:
             self.execute_steps(workflow.actions, context, self.logger)
             context.status = ExecutionStatus.COMPLETED
+            context.failure_category = None
             self.logger.info(f"Workflow '{workflow.name}' completed successfully.")
         except CancellationException as ce:
             context.status = ExecutionStatus.CANCELLED
             context.error = str(ce)
+            context.failure_category = "cancelled"
             self.logger.warn(f"Workflow cancelled: {ce}")
+        except ActionTimeoutException as te:
+            context.status = ExecutionStatus.FAILED
+            context.error = str(te)
+            context.failure_category = "timeout"
+            self.logger.error(f"Workflow execution timed out: {te}")
         except Exception as e:
             context.status = ExecutionStatus.FAILED
             context.error = str(e)
+            err_lower = str(e).lower()
+            context.failure_category = (
+                "timeout"
+                if ("timed out" in err_lower or "not found after" in err_lower)
+                else "failed"
+            )
             self.logger.error(f"Workflow execution failed: {e}")
         finally:
             context.finished_at = time.time()

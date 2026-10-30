@@ -36,6 +36,9 @@ def main(argv=None) -> int:
     validate_parser = subparsers.add_parser("validate", help="Validate a workflow JSON file without executing")
     validate_parser.add_argument("workflow_file", help="Path to workflow JSON file")
 
+    # UI command
+    subparsers.add_parser("ui", help="Launch the NewDoAuto Windows Desktop GUI")
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -47,6 +50,10 @@ def main(argv=None) -> int:
 
     if args.command == "run":
         return _handle_run(args)
+
+    if args.command == "ui":
+        from newdoauto.ui.app import launch_desktop_app
+        return launch_desktop_app()
 
     return 0
 

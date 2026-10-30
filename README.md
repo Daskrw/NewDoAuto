@@ -77,7 +77,16 @@ NewDoAuto strictly decouples workflow design, state management, and execution:
 
 ## Quickstart
 
-### 1. Run via Standalone Executable (No Python Required)
+### 1. Launch the Windows Desktop Application (Phase C GUI)
+```powershell
+# Launch via standalone desktop executable (No Python required)
+.\dist\NewDoAuto-Desktop.exe
+
+# Or launch via the CLI runner
+.\dist\newdoauto.exe ui
+```
+
+### 2. Run Workflows via Standalone CLI (No Python Required)
 ```powershell
 # Validate workflow
 .\dist\newdoauto.exe validate workflows\notepad_poc.json
@@ -86,7 +95,7 @@ NewDoAuto strictly decouples workflow design, state management, and execution:
 .\dist\newdoauto.exe run workflows\notepad_poc.json
 ```
 
-### 2. Development Setup
+### 3. Development Setup
 ```powershell
 # Create and activate virtual environment
 python -m venv .venv
@@ -95,8 +104,12 @@ python -m venv .venv
 # Install package in editable mode with development dependencies
 pip install -e ".[dev]"
 
+# Launch the desktop GUI from source
+newdoauto ui
+# or: python -m newdoauto.ui.app
+
 # Run test suite
-pytest -v -s
+pytest -v -rs
 ```
 
 ---
@@ -122,17 +135,43 @@ The included proof-of-concept workflows demonstrate live interaction with Micros
 
 ## Packaging & Installation
 
-### Building the Standalone Binary
+### Building the Standalone Executables
 ```powershell
 python packaging/build_standalone.py
 ```
-This produces `dist/newdoauto.exe` (approx 7.6 MB) containing the embedded runtime and all required dependencies.
+This produces two self-contained Windows binaries in `dist/` with no external Python requirement:
+1. `dist/NewDoAuto-Desktop.exe`: Windowed PySide6 desktop application (Authentication, Cloud Dashboard, Visual Workflow Editor, and Live Execution Runner).
+2. `dist/newdoauto.exe`: Command-line runner supporting `newdoauto run`, `newdoauto validate`, and `newdoauto ui`.
 
 ### Per-User Installation
 ```powershell
 .\packaging\install.ps1
 ```
-Installs `newdoauto.exe` into `%LOCALAPPDATA%\Programs\NewDoAuto\bin` and adds it to the user's `PATH`.
+Installs `NewDoAuto-Desktop.exe` and `newdoauto.exe` into `%LOCALAPPDATA%\Programs\NewDoAuto\bin` and adds the directory to the user's `PATH`.
+
+---
+
+## Windows Desktop Application (Phase C)
+
+Built with **PySide6 (Qt for Python)** in `src/newdoauto/ui/`, the desktop application wraps `AutomationEngine`, `SupabaseAuthService`, and `WorkflowCloudRepository` without duplicating business logic:
+
+- **Account & Session Management**:
+  - Sign In and Create Account screens with clear validation and sanitized error messages.
+  - Automatic session restoration on startup (`restore_session()`) and one-click Sign Out that immediately clears user-scoped cloud state.
+  - Full Local Mode support when working offline or without a Supabase connection.
+- **Cloud Workflow Dashboard**:
+  - Displays the authenticated user's workflows from Supabase (`list_workflows()`).
+  - Create, Open, Rename, Refresh, and Delete (with confirmation dialog), plus Local JSON Import/Export.
+- **Visual Step-by-Step Workflow Editor**:
+  - Edit workflow name, description, and initial variables JSON.
+  - Add any of the 10 supported action types from `ActionRegistry`, edit step parameters in a structured form (`StepParameterEditor`), reorder steps (Move Up / Move Down), duplicate steps, and delete steps.
+  - Visual overview and validated JSON branch editor for `flow.if_else` (`then` and `else` branches), preserving nested actions and any unknown/extra schema fields on round-trip save.
+  - Tracks unsaved changes (`● Unsaved Changes`) and prompts before discarding edits.
+  - Handles optimistic concurrency conflicts (`WorkflowConflictError`) with options to **Reload Cloud Version**, **Save Local Edits as New Copy**, or **Cancel**—never silently overwriting newer cloud data.
+- **Responsive Execution & Live Logs**:
+  - Runs workflows in a background `QThread` (`WorkflowExecutionWorker`) so the UI never freezes.
+  - Streams structured execution logs incrementally in real time.
+  - Provides a **Stop** button alongside the `Ctrl+F12` global emergency stop hotkey, and displays distinct status badges (`IDLE`, `RUNNING`, `SUCCESS`, `FAILED`, `TIMEOUT`, `CANCELLED`).
 
 ---
 

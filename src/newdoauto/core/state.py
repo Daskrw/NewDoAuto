@@ -63,6 +63,7 @@ class ExecutionContext:
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
     error: Optional[str] = None
+    failure_category: Optional[str] = None
     spawned_processes: List[subprocess.Popen] = field(default_factory=list)
     logs: List[Dict[str, Any]] = field(default_factory=list)
 

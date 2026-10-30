@@ -5,7 +5,8 @@
 #define MyAppVersion "0.1.0"
 #define MyAppPublisher "Daskrw"
 #define MyAppURL "https://github.com/Daskrw/NewDoAuto"
-#define MyAppExeName "newdoauto.exe"
+#define MyAppExeName "NewDoAuto-Desktop.exe"
+#define MyCliExeName "newdoauto.exe"
 
 [Setup]
 AppId={{D37E8A1F-2B4C-4D9E-8F12-A4B5C6D7E8F9}
@@ -34,6 +35,7 @@ Name: "addtopath"; Description: "Add NewDoAuto to user PATH environment variable
 
 [Files]
 Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\{#MyCliExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\workflows\*"; DestDir: "{app}\workflows"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\.env.example"; DestDir: "{app}"; Flags: ignoreversion
